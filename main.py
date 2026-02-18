@@ -1,109 +1,78 @@
 import asyncio
 import json
 import random
-import time
-from utils.discord_api import DiscordAPI  # wait — we need to create it too
-
-# ────────────────────────────────────────
-#    discord_api.py was missing — here it is
-# ────────────────────────────────────────
-
-# utils/discord_api.py
 import requests
-import base64
-from .captcha import CaptchaSolver
-from .fingerprint import generate_x_fingerprint, get_tls_session
-from .email import create_temp_email, poll_for_verification
+from utils.proxy import ProxyManager
+from utils.captcha import RazorCap
+from utils.fingerprint import generate_x_fingerprint
+from utils.humanizer import humanize
 
-class DiscordAPI:
-    def __init__(self, config):
-        self.config = config
-        self.solver = CaptchaSolver(config["captcha"]["api_key"])
+with open("config.json") as f:
+    config = json.load(f)
 
-    def register(self, proxy_dict=None):
-        session = get_tls_session()
-        fp = generate_x_fingerprint()
+proxy_mgr = ProxyManager(config["proxies_file"])
+captcha = RazorCap(config["captcha"]["api_key"], config["captcha"]["base_url"])
 
-        email, email_token = create_temp_email()
-        if not email:
-            return None, "email failed"
+async def create():
+    proxy_dict = proxy_mgr.get_proxy()
+    proxy_str = proxy_mgr.get_proxy_str()
 
-        captcha_key = self.solver.solve_hcaptcha(
-            "4c672d35-0701-42b2-88c3-78380b0db560",
-            "https://discord.com/register",
-            proxy=proxy_dict
+    fp = generate_x_fingerprint()
+
+    # REPLACE WITH REAL EMAIL LOGIC (tempmail.lol, catch-all, outlook bulk, etc.)
+    email = f"test{random.randint(1000000,9999999)}@example.com"
+
+    captcha_key = captcha.solve_hcaptcha(
+        "4c672d35-0701-42b2-88c3-78380b0db560",
+        "https://discord.com/register",
+        proxy_str
+    )
+
+    if not captcha_key:
+        print("Captcha failed")
+        return
+
+    payload = {
+        "fingerprint": fp,
+        "email": email,
+        "username": f"user{random.randint(100000,999999)}",
+        "password": config["password"],
+        "consent": True,
+        "date_of_birth": config["dob"],
+        "captcha_key": captcha_key
+    }
+
+    headers = {
+        "User-Agent": config["user_agent"],
+        "X-Fingerprint": fp,
+        "X-Super-Properties": "eyJvc0ZhbGxiYWNrIjoib3NfZmFsbGJhY2sifQ=="  # REPLACE WITH REAL SCRAPED VALUE
+    }
+
+    try:
+        r = requests.post(
+            "https://discord.com/api/v9/auth/register",
+            json=payload,
+            headers=headers,
+            proxies=proxy_dict,
+            timeout=20
         )
-        if not captcha_key:
-            return None, "captcha failed"
-
-        payload = {
-            "fingerprint": fp,
-            "email": email,
-            "username": f"user{random.randint(100000,999999)}",
-            "password": self.config["password"],
-            "invite": None,
-            "consent": True,
-            "date_of_birth": self.config["dob"],
-            "captcha_key": captcha_key
-        }
-
-        try:
-            r = session.post(
-                "https://discord.com/api/v9/auth/register",
-                json=payload,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-                    "X-Fingerprint": fp,
-                    "X-Super-Properties": base64.b64encode(json.dumps({
-                        "os":"Windows","browser":"Chrome","device":"",
-                        "system_locale":"en-US","browser_user_agent":"Mozilla/5.0 ...",
-                        "client_build_number":999999  # update this
-                    }).encode()).decode()
-                },
-                proxies=proxy_dict,
-                timeout=20
-            )
-            data = r.json()
-            token = data.get("token")
-            if token:
-                # verify email
-                verify_link = poll_for_verification(email_token)
-                if verify_link:
-                    session.get(verify_link, proxies=proxy_dict)
-                return token, None
-            return None, data.get("message", r.text)
-        except Exception as e:
-            return None, str(e)
-
-# ────────────────────────────────────────
-# back to main.py
-# ────────────────────────────────────────
-
-async def worker(api, proxy_mgr, config):
-    while True:
-        proxy = proxy_mgr.get_proxy() if config["use_proxies"] else None
-        token, err = api.register(proxy)
+        data = r.json()
+        token = data.get("token")
         if token:
             print(f"[+] {token}")
-            from utils.humanizer import humanize
-            humanize(token, proxy, config)
-            with open("tokens.txt", "a", encoding="utf-8") as f:
+            with open(config["output_file"], "a") as f:
                 f.write(token + "\n")
+            humanize(token, proxy_dict, config)
         else:
-            print(f"[-] {err}")
-        await asyncio.sleep(random.uniform(config["min_delay_sec"], config["max_delay_sec"]))
+            print("[-]", data.get("message", r.text))
+    except Exception as e:
+        print("Error:", e)
+
+    await asyncio.sleep(random.uniform(config["min_delay"], config["max_delay"]))
 
 async def main():
-    with open("config.json") as f:
-        config = json.load(f)
+    while True:
+        tasks = [create() for _ in range(config["threads"])]
+        await asyncio.gather(*tasks)
 
-    from utils.proxy import ProxyManager
-    proxy_mgr = ProxyManager(config["proxies_file"]) if config["use_proxies"] else None
-
-    api = DiscordAPI(config)
-
-    tasks = [asyncio.create_task(worker(api, proxy_mgr, config)) for _ in range(config["threads"])]
-    await asyncio.gather(*tasks)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
