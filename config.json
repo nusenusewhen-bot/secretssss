@@ -1,16 +1,19 @@
 {
-  "threads": 5,
-  "proxies_file": "data/proxies.txt",
+  "threads": 4,
   "use_proxies": true,
-  "captcha_solver": {
-    "type": "your_solver_name",
-    "api_key": "your_key_here"
+  "proxies_file": "data/proxies.txt",
+  "captcha": {
+    "api_key": "44b5a90f-182f-4c67-b219-ef8dfd33d7a1",
+    "solver": "razorcap"
   },
-  "email_provider": "gmx" || "outlook_api" || "catch_all_domain",
   "humanize": true,
   "pfp_folder": "data/pfps",
-  "min_delay": 12,
-  "max_delay": 45,
-  "build_number": 999999,  // scrape this dynamically!
-  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Discord/1.0.9150"  // match real client
+  "bios_file": "data/bios.txt",
+  "usernames_file": "data/usernames.txt",
+  "min_delay_sec": 15,
+  "max_delay_sec": 60,
+  "password": "xX_DiscordGen_2026_Xx",
+  "dob": "2006-04-20",
+  "user_agent_template": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Discord/{build_number}",
+  "discord_base_url": "https://discord.com/api/v9"
 }
