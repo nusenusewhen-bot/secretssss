@@ -1,0 +1,16 @@
+{
+  "threads": 5,
+  "proxies_file": "data/proxies.txt",
+  "use_proxies": true,
+  "captcha_solver": {
+    "type": "your_solver_name",
+    "api_key": "your_key_here"
+  },
+  "email_provider": "gmx" || "outlook_api" || "catch_all_domain",
+  "humanize": true,
+  "pfp_folder": "data/pfps",
+  "min_delay": 12,
+  "max_delay": 45,
+  "build_number": 999999,  // scrape this dynamically!
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Discord/1.0.9150"  // match real client
+}
