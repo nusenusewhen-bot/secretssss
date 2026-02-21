@@ -13,12 +13,23 @@ const client = new Client({
 });
 
 const PREFIX = '!';
-const OWNER_ID = process.env.OWNER_ID; // Put your Discord ID in .env
+
+// Multiple owner IDs - comma separated in .env or array here
+const OWNER_IDS = process.env.OWNER_IDS ? process.env.OWNER_IDS.split(',').map(id => id.trim()) : [];
+
+// Or hardcode them directly (not recommended but works):
+// const OWNER_IDS = ['123456789012345678', '876543210987654321'];
 
 client.once('ready', () => {
     console.log(`✅ Logged in as ${client.user.tag}`);
+    console.log(`👑 Owners: ${OWNER_IDS.join(', ') || 'None set'}`);
     console.log(`📊 Serving ${client.guilds.cache.size} guilds`);
 });
+
+// Helper function to check if user is owner
+function isOwner(userId) {
+    return OWNER_IDS.includes(userId);
+}
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
@@ -29,9 +40,9 @@ client.on('messageCreate', async (message) => {
 
     // !unbanall command
     if (command === 'unbanall') {
-        // Check if user is bot owner
-        if (message.author.id !== OWNER_ID) {
-            return message.reply('❌ Only the bot owner can use this command.');
+        // Check if user is an owner
+        if (!isOwner(message.author.id)) {
+            return message.reply('❌ Only bot owners can use this command.');
         }
 
         // Check if user has Ban Members permission
@@ -121,7 +132,6 @@ client.on('messageCreate', async (message) => {
                     }
 
                     // Rate limit protection - wait 1 second between unbans
-                    // Discord allows ~5 actions per second, but we play it safe
                     if (i < banArray.length - 1) {
                         await new Promise(resolve => setTimeout(resolve, 1000));
                     }
@@ -168,6 +178,25 @@ client.on('messageCreate', async (message) => {
         }
     }
 
+    // !owners command - show current owners (owner only)
+    if (command === 'owners') {
+        if (!isOwner(message.author.id)) {
+            return message.reply('❌ Owner only.');
+        }
+
+        const ownerList = OWNER_IDS.map(id => {
+            const user = client.users.cache.get(id);
+            return user ? `${user.tag} (${id})` : `Unknown (${id})`;
+        }).join('\n') || 'No owners configured';
+
+        const embed = new EmbedBuilder()
+            .setTitle('👑 Bot Owners')
+            .setDescription(ownerList)
+            .setColor(0xFFD700);
+
+        message.reply({ embeds: [embed] });
+    }
+
     // !help command
     if (command === 'help') {
         const helpEmbed = new EmbedBuilder()
@@ -175,6 +204,7 @@ client.on('messageCreate', async (message) => {
             .setDescription('Available commands:')
             .addFields(
                 { name: '!unbanall', value: 'Unban all banned users in the server (Owner only)' },
+                { name: '!owners', value: 'List all bot owners (Owner only)' },
                 { name: '!help', value: 'Show this help message' }
             )
             .setColor(0x3498DB)
