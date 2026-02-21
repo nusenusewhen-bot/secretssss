@@ -1,8 +1,0 @@
-requests==2.31.0
-tls-client  # or curl_cffi for JA3/TLS spoof (critical!)
-playwright   # or puppeteer if node, but python playwright better for stealth
-playwright-stealth
-aiohttp
-beautifulsoup4
-python-dotenv  # for secrets if you add
-pillow  # for minor pfp edits/resizing
